@@ -1,5 +1,5 @@
 
-import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
+import { GoogleGenAI, GenerateContentResponse, Modality } from "@google/genai";
 import { AccountState, ChatMessage } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
@@ -7,7 +7,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
 const SYSTEM_INSTRUCTION = `
 Eres un asesor experto de Rise of Kingdoms (RoK) con años de experiencia en el juego. 
 Tu objetivo es ayudar al usuario a optimizar su cuenta basándote en su estado actual.
-Conoces el meta actual (Season of Conquest, commanders, gear, pairings).
+Conoces el meta actual (Season of Conquest, comandantes, equipo, emparejamientos).
 
 Reglas de asesoría:
 1. Analiza el VIP: Prioriza llegar a VIP 10, 12 y 14 para cabezas doradas.
@@ -61,7 +61,6 @@ export const chatWithAdvisor = async (history: ChatMessage[], state: AccountStat
       parts: [{ text: msg.content }]
     }));
 
-    // Add context to the last message if it's the first time or as a hidden reminder
     const lastMsg = contents[contents.length - 1];
     lastMsg.parts[0].text = `${context}\n\nPregunta del usuario: ${lastMsg.parts[0].text}`;
 
@@ -78,5 +77,27 @@ export const chatWithAdvisor = async (history: ChatMessage[], state: AccountStat
   } catch (error) {
     console.error("Chat Error:", error);
     return "Hubo un problema procesando tu pregunta.";
+  }
+};
+
+export const generateSpeech = async (text: string): Promise<string | undefined> => {
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash-preview-tts",
+      contents: [{ parts: [{ text: `Responde con autoridad de comandante: ${text}` }] }],
+      config: {
+        responseModalities: [Modality.AUDIO],
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: { voiceName: 'Puck' }, // Una voz con tono de autoridad
+          },
+        },
+      },
+    });
+
+    return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+  } catch (error) {
+    console.error("TTS Error:", error);
+    return undefined;
   }
 };
